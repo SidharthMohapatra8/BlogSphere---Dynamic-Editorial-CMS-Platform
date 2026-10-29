@@ -1,0 +1,6 @@
+{
+  "name": "BlogSphere - Dynamic Editorial & CMS Platform",
+  "description": "A modern, premium dynamic blogging platform and content management system with administrative control, Markdown publishing, image workflows, and GitHub/Streamlit deployment readiness.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,12 +1,11 @@
 """
-BlogSphere — Premium Editorial Publication & Dynamic CMS Platform
-Engineered to replicate the modern editorial web design in Streamlit with zero visual compromises.
+BlogSphere — Modern Editorial Publication & Dynamic CMS Platform
+Engineered for Python & Streamlit Community Cloud
 """
 import streamlit as st
 import datetime
 import base64
 import os
-import re
 from config import (
     PROJECT_NAME, PROJECT_TAGLINE, PROJECT_DESCRIPTION,
     DEFAULT_CATEGORIES, ADMIN_EMAIL_DEFAULT, ADMIN_PASSWORD_DEFAULT
@@ -14,220 +13,167 @@ from config import (
 import database as db
 from auth import verify_password, hash_password
 
-# Page configuration
 st.set_page_config(
-    page_title=f"{PROJECT_NAME} — Editorial & CMS Platform",
+    page_title=f"{PROJECT_NAME} — Editorial & CMS",
     page_icon="✒️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# Custom High-End Editorial CSS
-EDITORIAL_HEAD_CSS = """
+# Custom Injected Styles (Clean and verified to never trigger code-block indentation)
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    --font-serif: 'Fraunces', Georgia, serif;
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-    --color-bg: #faf9f5;
-    --color-text-main: #0f172a;
-    --color-accent: #d97706;
+--font-serif: 'Fraunces', Georgia, serif;
+--font-sans: 'Inter', -apple-system, sans-serif;
+--font-mono: 'JetBrains Mono', monospace;
+--bg-cream: #faf9f5;
+--text-slate: #0f172a;
+--accent-amber: #d97706;
 }
 
 html, body, [data-testid="stAppViewContainer"] {
-    font-family: var(--font-sans);
-    background-color: var(--color-bg) !important;
-    color: var(--color-text-main) !important;
-}
-
-/* Remove default Streamlit top padding and watermarks */
-.main > div {
-    padding-top: 1rem !important;
-    padding-left: 2.5rem !important;
-    padding-right: 2.5rem !important;
-    max-width: 1400px !important;
-    margin: 0 auto !important;
+font-family: var(--font-sans);
+background-color: var(--bg-cream) !important;
+color: var(--text-slate) !important;
 }
 
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header[data-testid="stHeader"] {background: transparent; height: 0.5rem;}
-section[data-testid="stSidebar"] {display: none;}
+header[data-testid="stHeader"] {background: transparent;}
 
-/* Headings */
 h1, h2, h3, h4 {
-    font-family: var(--font-serif) !important;
-    font-weight: 700 !important;
-    letter-spacing: -0.025em !important;
-    color: #0f172a !important;
+font-family: var(--font-serif) !important;
+font-weight: 700 !important;
+letter-spacing: -0.025em !important;
+color: #0f172a !important;
 }
 
-/* Links */
-a {
-    transition: all 0.15s ease;
-}
-a:hover {
-    opacity: 0.85;
-}
-
-/* Primary Button Styling */
-div.stButton > button {
-    border-radius: 0.65rem !important;
-    font-weight: 600 !important;
-    font-size: 0.85rem !important;
-    padding: 0.45rem 1.15rem !important;
+/* Card Styling */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+background: #ffffff !important;
+border: 1px solid rgba(226, 232, 240, 0.9) !important;
+border-radius: 1rem !important;
+padding: 1.25rem !important;
+box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03) !important;
 }
 
 div.stButton > button[kind="primary"] {
-    background-color: #d97706 !important;
-    border-color: #d97706 !important;
-    color: #ffffff !important;
+background-color: #d97706 !important;
+border-color: #d97706 !important;
+color: #ffffff !important;
+border-radius: 0.65rem !important;
+font-weight: 600 !important;
 }
 
 div.stButton > button[kind="primary"]:hover {
-    background-color: #b45309 !important;
-    border-color: #b45309 !important;
+background-color: #b45309 !important;
+border-color: #b45309 !important;
 }
 
-/* Drop Cap */
-.drop-cap::first-letter {
-    font-family: var(--font-serif);
-    float: left;
-    font-size: 4rem;
-    line-height: 0.85;
-    padding-top: 4px;
-    padding-right: 12px;
-    font-weight: 700;
-    color: #d97706;
+div.stButton > button:not([kind="primary"]) {
+border-radius: 0.65rem !important;
+font-weight: 500 !important;
+border: 1px solid #e2e8f0 !important;
+background: #ffffff !important;
 }
 </style>
-"""
-st.markdown(EDITORIAL_HEAD_CSS, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# Read URL Query Parameters for Instant Navigation
-query_slug = st.query_params.get("read")
-query_view = st.query_params.get("view", "home")
-query_cat = st.query_params.get("cat", "All")
-
-# Session State for Admin
+# Session state
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 if "admin_email" not in st.session_state:
     st.session_state.admin_email = ""
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Publications"
+if "selected_slug" not in st.session_state:
+    st.session_state.selected_slug = None
+if "selected_cat" not in st.session_state:
+    st.session_state.selected_cat = "All"
 if "edit_post_id" not in st.session_state:
     st.session_state.edit_post_id = None
 
-# ==========================================================
-# 1. PIXEL-PERFECT TOP NAVIGATION BAR (HTML Matching Tab 4)
-# ==========================================================
-nav_active_home = "border-bottom: 2px solid #d97706; color: #0f172a; font-weight: 600;" if query_view == "home" and not query_slug else "color: #64748b; font-weight: 500;"
-nav_active_exp = "border-bottom: 2px solid #d97706; color: #0f172a; font-weight: 600;" if query_view == "explore" else "color: #64748b; font-weight: 500;"
-nav_active_adm = "border-bottom: 2px solid #d97706; color: #d97706; font-weight: 600;" if query_view == "admin" else "color: #d97706; font-weight: 600;"
+# TOP NAVIGATION BAR (Using clean Streamlit columns to guarantee zero HTML leakage)
+nav1, nav2, nav3, nav4, nav5 = st.columns([3.5, 1.5, 1.5, 1.5, 1.5])
+with nav1:
+    st.markdown(f"### ✒️ **{PROJECT_NAME}**")
+with nav2:
+    if st.button("📰 Publications", use_container_width=True, type="primary" if st.session_state.current_page == "Publications" and not st.session_state.selected_slug else "secondary"):
+        st.session_state.current_page = "Publications"
+        st.session_state.selected_slug = None
+        st.rerun()
+with nav3:
+    if st.button("🔍 Explore Archive", use_container_width=True, type="primary" if st.session_state.current_page == "Explore Archive" else "secondary"):
+        st.session_state.current_page = "Explore Archive"
+        st.session_state.selected_slug = None
+        st.rerun()
+with nav4:
+    admin_btn_title = "🛡️ Admin Studio" if not st.session_state.is_admin else "🛡️ Studio (Logged In)"
+    if st.button(admin_btn_title, use_container_width=True, type="primary" if st.session_state.current_page == "Admin Studio" else "secondary"):
+        st.session_state.current_page = "Admin Studio"
+        st.session_state.selected_slug = None
+        st.rerun()
+with nav5:
+    if st.session_state.is_admin:
+        if st.button("Sign Out", use_container_width=True):
+            st.session_state.is_admin = False
+            st.session_state.admin_email = ""
+            st.rerun()
+    else:
+        if st.button("Sign In", use_container_width=True):
+            st.session_state.current_page = "Admin Studio"
+            st.session_state.selected_slug = None
+            st.rerun()
 
-st.markdown(f"""
-<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0 1.25rem 0; border-bottom: 1px solid rgba(226, 232, 240, 0.9); margin-bottom: 2.25rem;">
-    <!-- Brand -->
-    <a href="?view=home" target="_self" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
-        <div style="width: 38px; height: 38px; background: #0f172a; color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            B
-        </div>
-        <div>
-            <div style="font-family: 'Fraunces', serif; font-size: 1.45rem; font-weight: 800; line-height: 1; color: #0f172a; letter-spacing: -0.03em;">
-                {PROJECT_NAME}
-            </div>
-            <div style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #b45309; margin-top: 2px;">
-                Editorial & CMS
-            </div>
-        </div>
-    </a>
-
-    <!-- Center Navigation Links -->
-    <div style="display: flex; align-items: center; gap: 2rem;">
-        <a href="?view=home" target="_self" style="text-decoration: none; font-size: 0.925rem; padding-bottom: 4px; {nav_active_home}">
-            Publications
-        </a>
-        <a href="?view=explore" target="_self" style="text-decoration: none; font-size: 0.925rem; padding-bottom: 4px; {nav_active_exp}">
-            Explore & Archive
-        </a>
-        <a href="?view=admin" target="_self" style="text-decoration: none; font-size: 0.925rem; padding-bottom: 4px; display: inline-flex; align-items: center; gap: 0.35rem; {nav_active_adm}">
-            <span>🛡️</span> <span>Admin Studio</span>
-        </a>
-    </div>
-
-    <!-- Right Controls -->
-    <div style="display: flex; align-items: center; gap: 0.85rem;">
-        <a href="?view=deploy" target="_self" style="border: 1px solid #cbd5e1; padding: 0.45rem 0.9rem; border-radius: 8px; color: #334155; font-size: 0.8rem; font-weight: 600; text-decoration: none; background: #ffffff;">
-            GitHub / Deploy
-        </a>
-        <a href="?view=admin" target="_self" style="background: #0f172a; color: #ffffff; padding: 0.45rem 1rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; text-decoration: none;">
-            {'Admin Active ✓' if st.session_state.is_admin else 'Sign In'}
-        </a>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+st.divider()
 
 # ==========================================================
-# 2. ROUTE: ARTICLE DETAIL READER
+# ROUTING
 # ==========================================================
-if query_slug:
-    post = db.get_post_by_slug(query_slug)
+
+# 1. READ ARTICLE VIEW
+if st.session_state.selected_slug:
+    post = db.get_post_by_slug(st.session_state.selected_slug)
     if not post:
         st.error("Article not found.")
-        st.markdown("<a href='?view=home' target='_self' style='text-decoration:none;'>← Back to publications</a>", unsafe_allow_html=True)
+        if st.button("← Back to Publications"):
+            st.session_state.selected_slug = None
+            st.rerun()
     else:
         db.increment_views(post["id"])
 
-        # Back & Like Bar
-        b_col, l_col = st.columns([5, 1.5])
-        with b_col:
-            st.markdown(f"<a href='?view=home' target='_self' style='color:#64748b; font-size:0.875rem; font-weight:600; text-decoration:none;'>← All Publications</a>", unsafe_allow_html=True)
-        with l_col:
-            if st.button(f"❤️ {post['likes']} Likes", key=f"like_{post['id']}", use_container_width=True):
+        c_back, c_like, c_share = st.columns([6, 1.5, 1.5])
+        with c_back:
+            if st.button("← Back to Publications"):
+                st.session_state.selected_slug = None
+                st.rerun()
+        with c_like:
+            if st.button(f"❤️ {post['likes']} Likes", use_container_width=True):
                 db.like_post(post["id"])
                 st.toast("Thank you for your appreciation!")
                 st.rerun()
+        with c_share:
+            if st.button("🔗 Copy Link", use_container_width=True):
+                st.toast("Link copied!")
 
-        # Header
-        st.markdown(f"""
-        <div style="text-align: center; max-width: 820px; margin: 2rem auto;">
-            <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.75rem; font-weight: 500;">
-                <span style="color: #b45309; font-weight: 700; text-transform: uppercase;">{post['category']}</span>
-                <span>·</span>
-                <span>{post['read_time']} min read</span>
-                <span>·</span>
-                <span>Published {str(post['published_at'])[:10]}</span>
-            </div>
-            <h1 style="font-family: 'Fraunces', serif; font-size: 3.5rem; line-height: 1.1; margin-bottom: 1rem; color: #0f172a;">
-                {post['title']}
-            </h1>
-            <p style="font-family: 'Fraunces', serif; font-style: italic; font-size: 1.4rem; color: #475569; margin-bottom: 1.5rem;">
-                {post['subtitle'] or ''}
-            </p>
-            <div style="display: inline-flex; align-items: center; gap: 0.75rem; background: rgba(241, 245, 249, 0.9); padding: 0.45rem 1.25rem; border-radius: 9999px;">
-                <span style="font-weight: 600; font-size: 0.875rem;">By {post['author_name']}</span>
-                <span style="color: #94a3b8;">·</span>
-                <span style="font-size: 0.825rem; color: #64748b;">{post['views']} reads</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.caption(f"{post['category']} · {post['read_time']} min read · Published {str(post['published_at'])[:10]}")
+        st.markdown(f"# {post['title']}")
+        if post["subtitle"]:
+            st.markdown(f"*{post['subtitle']}*")
+        st.caption(f"Written by **{post['author_name']}** · {post['views']} reads")
 
         if post["featured_image"]:
             st.image(post["featured_image"], use_container_width=True)
 
-        st.markdown("<hr style='border: none; border-top: 1px solid rgba(226, 232, 240, 0.9); margin: 2.5rem 0;' />", unsafe_allow_html=True)
+        st.divider()
+        st.markdown(post["content"])
+        st.divider()
 
-        # Article Content
-        st.markdown(f"<div style='font-size: 1.18rem; line-height: 1.85; color: #334155; max-width: 820px; margin: 0 auto;' class='drop-cap'>", unsafe_allow_html=True)
-        st.markdown(post["content"], unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("<hr style='border: none; border-top: 1px solid rgba(226, 232, 240, 0.9); margin: 2.5rem 0;' />", unsafe_allow_html=True)
-
-        # Comments Section
-        st.markdown("<div style='max-width: 820px; margin: 0 auto;'>", unsafe_allow_html=True)
-        st.markdown("### 💬 Reader Responses & Discussion")
+        # Comments
+        st.markdown("### 💬 Reader Responses")
         comments = db.get_comments(post["id"])
         if comments:
             for c in comments:
@@ -235,9 +181,9 @@ if query_slug:
                     st.markdown(f"**{c['author_name']}** · *{str(c['created_at'])[:16]}*")
                     st.write(c["content"])
         else:
-            st.info("No responses yet. Be the first to share your perspective below.")
+            st.info("No responses yet. Share your thoughts below.")
 
-        with st.form(key=f"art_comm_{post['id']}", clear_on_submit=True):
+        with st.form(key=f"comm_{post['id']}", clear_on_submit=True):
             st.markdown("#### Leave a response")
             c_name = st.text_input("Your Name", placeholder="e.g. Alex Morgan")
             c_email = st.text_input("Your Email (optional)", placeholder="alex@domain.com")
@@ -248,27 +194,14 @@ if query_slug:
                     st.success("Your response has been published!")
                     st.rerun()
                 else:
-                    st.error("Please provide both your name and comment.")
-        st.markdown("</div>", unsafe_allow_html=True)
+                    st.error("Please provide both name and comment.")
 
-# ==========================================================
-# 3. ROUTE: HOMEPAGE (Matching Tab 4 with Unified Hero Card)
-# ==========================================================
-elif query_view == "home":
-    # Centered Masthead
-    st.markdown(f"""
-    <div style="text-align: center; max-width: 780px; margin: 0.5rem auto 2.5rem auto;">
-        <div style="font-size: 0.725rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; color: #b45309; margin-bottom: 0.5rem;">
-            INDEPENDENT EDITORIAL & SYSTEMS PUBLISHING
-        </div>
-        <div style="font-family: 'Fraunces', serif; font-size: 3.85rem; font-weight: 800; line-height: 1.05; letter-spacing: -0.035em; color: #0f172a; margin-bottom: 0.75rem;">
-            {PROJECT_NAME}
-        </div>
-        <div style="font-family: 'Fraunces', serif; font-style: italic; font-size: 1.35rem; color: #475569; line-height: 1.5;">
-            {PROJECT_TAGLINE}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+# 2. PUBLICATIONS VIEW (Homepage)
+elif st.session_state.current_page == "Publications":
+    # Masthead
+    st.markdown("<p style='text-align:center; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.18em; color:#b45309; margin-bottom:0;'>INDEPENDENT EDITORIAL & SYSTEMS PUBLISHING</p>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='text-align:center; font-size:3.5rem; margin-top:0.25rem; margin-bottom:0.5rem;'>{PROJECT_NAME}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align:center; font-style:italic; font-size:1.25rem; color:#475569; margin-bottom:2rem;'>{PROJECT_TAGLINE}</p>", unsafe_allow_html=True)
 
     all_published = db.get_posts(status="published")
 
@@ -276,141 +209,75 @@ elif query_view == "home":
         flagship = next((p for p in all_published if p.get("is_featured") == 1), all_published[0])
         remaining = [p for p in all_published if p["id"] != flagship["id"]]
 
-        hero_img = flagship.get("featured_image") or "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80"
-        flagship_slug = flagship["slug"]
+        # Hero Banner
+        with st.container(border=True):
+            h_text, h_img = st.columns([1.2, 1], gap="medium")
+            with h_text:
+                st.caption(f"★ FEATURED DISPATCH · {flagship['category']} · {flagship['read_time']} MIN READ")
+                st.markdown(f"## {flagship['title']}")
+                st.write(flagship["subtitle"] or flagship["excerpt"])
+                st.caption(f"By {flagship['author_name']} · {str(flagship['published_at'])[:10]} · {flagship['views']} reads")
+                if st.button("Read Full Story →", key="flagship_btn", type="primary"):
+                    st.session_state.selected_slug = flagship["slug"]
+                    st.rerun()
+            with h_img:
+                h_pic = flagship.get("featured_image") or "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80"
+                st.image(h_pic, use_container_width=True)
 
-        # UNIFIED 2-COLUMN HERO CARD (ONE SINGLE CONTINUOUS CARD!)
-        st.markdown(f"""
-        <div style="display: grid; grid-template-columns: 1.2fr 1fr; background: #0f172a; border-radius: 1.25rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 2.75rem;">
-            <!-- Left Text Column -->
-            <div style="padding: 3rem; display: flex; flex-direction: column; justify-content: space-between; color: #ffffff;">
-                <div>
-                    <div style="font-size: 0.725rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #fbbf24; margin-bottom: 1rem;">
-                        ★ FEATURED DISPATCH · {flagship['category']} · {flagship['read_time']} MIN READ
-                    </div>
-                    <div style="font-family: 'Fraunces', serif; font-size: 2.5rem; font-weight: 700; line-height: 1.15; color: #ffffff; margin-bottom: 1rem;">
-                        {flagship['title']}
-                    </div>
-                    <p style="font-size: 1.1rem; line-height: 1.6; color: #cbd5e1; margin-bottom: 1.75rem;">
-                        {flagship['subtitle'] or flagship['excerpt']}
-                    </p>
-                </div>
+        st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
 
-                <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 1.5rem; border-top: 1px solid rgba(255, 255, 255, 0.12);">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; background: #d97706; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;">
-                            {flagship['author_name'][0]}
-                        </div>
-                        <div>
-                            <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">{flagship['author_name']}</div>
-                            <div style="font-size: 0.75rem; color: #94a3b8;">{str(flagship['published_at'])[:10]} · {flagship['views']} reads</div>
-                        </div>
-                    </div>
+        # Category Filter Bar
+        st.markdown("#### **Filter by Topic**")
+        cat_options = ["All"] + DEFAULT_CATEGORIES
+        cat_cols = st.columns(len(cat_options))
+        for idx, cat in enumerate(cat_options):
+            with cat_cols[idx]:
+                is_active = (st.session_state.selected_cat == cat)
+                if st.button(cat, key=f"cat_btn_{cat}", use_container_width=True, type="primary" if is_active else "secondary"):
+                    st.session_state.selected_cat = cat
+                    st.rerun()
 
-                    <a href="?read={flagship_slug}" target="_self" style="background: #f59e0b; color: #0f172a; font-weight: 700; font-size: 0.85rem; padding: 0.65rem 1.35rem; border-radius: 0.65rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
-                        <span>Read Full Story</span> <span>→</span>
-                    </a>
-                </div>
-            </div>
+        # Filtered posts
+        filtered_posts = remaining if st.session_state.selected_cat == "All" else [p for p in remaining if p["category"] == st.session_state.selected_cat]
 
-            <!-- Right Image Column -->
-            <div style="position: relative; min-height: 100%;">
-                <img src="{hero_img}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Trending Stories 4-Column Strip
-        trending = sorted(all_published, key=lambda x: x.get("views", 0), reverse=True)[:4]
-        if trending:
-            st.markdown("""
-            <div style="font-size: 0.775rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #b45309; margin-bottom: 1rem;">
-                🔥 TRENDING DISPATCHES THIS WEEK
-            </div>
-            """, unsafe_allow_html=True)
-
-            trend_cols = st.columns(len(trending))
-            for idx, tp in enumerate(trending):
-                with trend_cols[idx]:
-                    st.markdown(f"""
-                    <a href="?read={tp['slug']}" target="_self" style="text-decoration: none; display: block; background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.9); border-radius: 0.875rem; padding: 1.15rem; transition: transform 0.2s ease;">
-                        <div style="font-family: 'Fraunces', serif; font-size: 1.75rem; font-weight: 800; color: #cbd5e1; line-height: 1; margin-bottom: 0.35rem;">
-                            0{idx+1}
-                        </div>
-                        <div style="font-size: 0.725rem; color: #b45309; font-weight: 700; text-transform: uppercase; margin-bottom: 0.35rem;">
-                            {tp['category']} · {tp['read_time']}m
-                        </div>
-                        <div style="font-family: 'Fraunces', serif; font-size: 1rem; font-weight: 700; color: #0f172a; line-height: 1.3; margin-bottom: 0.5rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-                            {tp['title']}
-                        </div>
-                        <div style="font-size: 0.75rem; color: #64748b;">
-                            By {tp['author_name']}
-                        </div>
-                    </a>
-                    """, unsafe_allow_html=True)
-
-        st.markdown("<hr style='border: none; border-top: 1px solid rgba(226, 232, 240, 0.9); margin: 2.75rem 0 1.5rem 0;' />", unsafe_allow_html=True)
-
-        # Horizontal Category Pills
-        cat_items = ["All"] + DEFAULT_CATEGORIES
-        pills_html = '<div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 1.5rem;">'
-        for cat in cat_items:
-            is_active = (query_cat == cat)
-            active_bg = "background: #0f172a; color: #ffffff; font-weight: 700;" if is_active else "background: #ffffff; color: #475569; font-weight: 500; border: 1px solid rgba(226, 232, 240, 0.9);"
-            pills_html += f'<a href="?view=home&cat={cat}" target="_self" style="padding: 0.45rem 1rem; border-radius: 9999px; font-size: 0.8rem; text-decoration: none; white-space: nowrap; {active_bg}">{cat}</a>'
-        pills_html += '</div>'
-        st.markdown(pills_html, unsafe_allow_html=True)
-
-        # Filter remaining
-        filtered_posts = remaining if query_cat == "All" else [p for p in remaining if p["category"] == query_cat]
-
-        # 3-Column Latest Publications Grid
         st.markdown(f"### 📰 Latest Publications ({len(filtered_posts)})")
-        grid_cols = st.columns(3)
-        for i, p in enumerate(filtered_posts):
-            with grid_cols[i % 3]:
-                p_img = p.get("featured_image") or "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=800&q=80"
-                summary = p["excerpt"][:110] + "..." if p["excerpt"] else p["content"][:110] + "..."
-                st.markdown(f"""
-                <div style="background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.9); border-radius: 1rem; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 1.5rem;">
-                    <img src="{p_img}" style="width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block;" />
-                    <div style="padding: 1.25rem;">
-                        <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.5rem;">
-                            <span style="color: #b45309; font-weight: 700;">{p['category']}</span> · {p['read_time']} min read · {str(p['published_at'])[:10]}
-                        </div>
-                        <h4 style="font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 700; color: #0f172a; line-height: 1.3; margin-bottom: 0.5rem;">
-                            {p['title']}
-                        </h4>
-                        <p style="font-size: 0.875rem; color: #475569; line-height: 1.5; margin-bottom: 1.25rem;">
-                            {summary}
-                        </p>
-                        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; font-size: 0.8rem;">
-                            <span style="font-weight: 600; color: #334155;">By {p['author_name']}</span>
-                            <a href="?read={p['slug']}" target="_self" style="color: #d97706; font-weight: 700; text-decoration: none;">Read Story →</a>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+        if not filtered_posts:
+            st.info("No articles found in this category.")
+        else:
+            cols = st.columns(3)
+            for i, p in enumerate(filtered_posts):
+                with cols[i % 3]:
+                    with st.container(border=True):
+                        if p.get("featured_image"):
+                            st.image(p["featured_image"], use_container_width=True)
+                        st.caption(f"{p['category']} · {p['read_time']} min read · {str(p['published_at'])[:10]}")
+                        st.markdown(f"#### {p['title']}")
+                        st.caption(p["excerpt"][:110] + "..." if p["excerpt"] else p["content"][:110] + "...")
+                        st.caption(f"By {p['author_name']} · {p['likes']} likes · {p['views']} views")
+                        if st.button("Read Story", key=f"p_btn_{p['id']}", use_container_width=True):
+                            st.session_state.selected_slug = p["slug"]
+                            st.rerun()
 
-    # Footer
-    st.markdown("<hr style='border: none; border-top: 1px solid rgba(226, 232, 240, 0.9); margin: 3rem 0 2rem 0;' />", unsafe_allow_html=True)
-    st.markdown(f"""
-    <div style="padding: 1.5rem 0; text-align: center; color: #64748b; font-size: 0.825rem;">
-        <div>© {datetime.datetime.now().year} <strong>{PROJECT_NAME}</strong> · Where engineering, design architecture, and strategic depth converge.</div>
-        <div style="margin-top: 0.5rem; display: flex; gap: 1.5rem; justify-content: center;">
-            <a href="?view=home" target="_self" style="color: #64748b; text-decoration: none;">Publications</a>
-            <a href="?view=explore" target="_self" style="color: #64748b; text-decoration: none;">Archive</a>
-            <a href="?view=admin" target="_self" style="color: #64748b; text-decoration: none;">Admin Studio</a>
-            <a href="?view=deploy" target="_self" style="color: #64748b; text-decoration: none;">GitHub Deployment</a>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Newsletter
+    st.divider()
+    st.markdown("### 📬 The Sunday Dispatch Newsletter")
+    st.write("Curated technical deep-dives and engineering perspectives delivered to your inbox.")
+    nl1, nl2 = st.columns([3, 1])
+    with nl1:
+        s_mail = st.text_input("Newsletter Email", placeholder="reader@domain.com", label_visibility="collapsed")
+    with nl2:
+        if st.button("Subscribe", key="sub_btn", use_container_width=True, type="primary"):
+            if s_mail and "@" in s_mail:
+                if db.add_subscriber(s_mail):
+                    st.success("Subscribed successfully! Welcome.")
+                else:
+                    st.info("You are already subscribed. Thank you!")
+            else:
+                st.error("Please enter a valid email address.")
 
-# ==========================================================
-# 4. ROUTE: EXPLORE ARCHIVE VIEW
-# ==========================================================
-elif query_view == "explore":
-    st.markdown(f"# 🔍 Explore All Publications")
+# 3. EXPLORE ARCHIVE VIEW
+elif st.session_state.current_page == "Explore Archive":
+    st.markdown("# 🔍 Explore All Publications")
     st.write("Browse and filter the complete archive of articles across categories and tags.")
 
     e_search = st.text_input("Search keywords", placeholder="Type keywords like Python, Architecture, Design, AI...")
@@ -424,11 +291,7 @@ elif query_view == "explore":
         with st.container(border=True):
             c_info, c_btn = st.columns([4.5, 1.2])
             with c_info:
-                st.markdown(f"""
-                <div style="font-size: 0.775rem; color: #64748b; margin-bottom: 0.35rem;">
-                    <span style="color: #b45309; font-weight: 700;">{ap['category']}</span> · {ap['read_time']} min read · By {ap['author_name']}
-                </div>
-                """, unsafe_allow_html=True)
+                st.caption(f"{ap['category']} · {ap['read_time']} min read · By {ap['author_name']}")
                 st.markdown(f"### {ap['title']}")
                 st.write(ap['excerpt'] or ap['content'][:160] + "...")
                 if ap['tags']:
@@ -436,19 +299,19 @@ elif query_view == "explore":
             with c_btn:
                 if ap.get("featured_image"):
                     st.image(ap["featured_image"], width=130)
-                st.markdown(f"<a href='?read={ap['slug']}' target='_self' style='background:#d97706; color:white; padding:0.45rem 1rem; border-radius:8px; text-decoration:none; font-size:0.85rem; font-weight:600; display:inline-block; margin-top:0.5rem;'>Read Article</a>", unsafe_allow_html=True)
+                if st.button("Read Article", key=f"e_btn_{ap['id']}", use_container_width=True, type="primary"):
+                    st.session_state.selected_slug = ap["slug"]
+                    st.rerun()
 
-# ==========================================================
-# 5. ROUTE: ADMIN STUDIO & CMS VIEW
-# ==========================================================
-elif query_view == "admin":
+# 4. ADMIN STUDIO & CMS VIEW
+elif st.session_state.current_page == "Admin Studio":
     st.markdown("# 🛡️ Admin Studio & Content Management")
 
     if not st.session_state.is_admin:
         st.warning("Please sign in to access post creation, drafts, publishing, and settings.")
-        l_c1, l_c2 = st.columns([1, 1])
-        with l_c1:
-            with st.form("admin_sign_in"):
+        l1, l2 = st.columns([1, 1])
+        with l1:
+            with st.form("admin_login"):
                 st.markdown("### Administrator Sign In")
                 a_email = st.text_input("Admin Email", value=ADMIN_EMAIL_DEFAULT)
                 a_pass = st.text_input("Password", type="password", value=ADMIN_PASSWORD_DEFAULT)
@@ -468,13 +331,13 @@ elif query_view == "admin":
                         st.rerun()
                     else:
                         st.error("Invalid email or password.")
-        with l_c2:
+        with l2:
             st.info(f"""
             **Default Administrator Credentials:**
             - **Email**: `{ADMIN_EMAIL_DEFAULT}`
             - **Password**: `{ADMIN_PASSWORD_DEFAULT}`
 
-            You can change your password in `config.py` or via the platform settings tab.
+            You can change your password in `config.py` or through the settings tab.
             """)
     else:
         stats = db.get_dashboard_stats()
@@ -490,7 +353,6 @@ elif query_view == "admin":
 
         admin_tabs = st.tabs(["📝 Content Library", "✨ Compose & Edit Article", "⚙️ Platform Settings", "📤 Cloud Database Setup"])
 
-        # TAB 1: ALL POSTS
         with admin_tabs[0]:
             st.markdown("### Content Library & Post Management")
             stat_pick = st.selectbox("Status Filter", ["all", "published", "draft", "scheduled"], index=0)
@@ -534,7 +396,6 @@ elif query_view == "admin":
                                 st.success("Article deleted.")
                                 st.rerun()
 
-        # TAB 2: COMPOSE / EDIT ARTICLE
         with admin_tabs[1]:
             is_edit_mode = (st.session_state.edit_post_id is not None)
             editing_article = db.get_post_by_id(st.session_state.edit_post_id) if is_edit_mode else None
@@ -629,13 +490,11 @@ elif query_view == "admin":
                             st.success(f"New publication created! (ID: {new_article_id})")
                             st.rerun()
 
-        # TAB 3: PLATFORM SETTINGS
         with admin_tabs[2]:
             st.markdown("### Platform Branding")
             st.write(f"Current Publication Name: **{PROJECT_NAME}**")
             st.info("To rebrand permanently, update `PROJECT_NAME` in `config.py` or set the `BLOG_PROJECT_NAME` environment variable.")
 
-        # TAB 4: CLOUD DATABASE SETUP
         with admin_tabs[3]:
             st.markdown("### Supabase PostgreSQL & Cloud Storage")
             st.markdown("""
@@ -653,34 +512,6 @@ elif query_view == "admin":
             ```
             """)
 
-# ==========================================================
-# 6. ROUTE: GITHUB & STREAMLIT DEPLOY GUIDE
-# ==========================================================
-elif query_view == "deploy":
-    st.markdown(f"# 🚀 Deploy {PROJECT_NAME} on Streamlit Community Cloud")
-    st.markdown("""
-    This platform is engineered for 1-click publishing to **Streamlit Community Cloud** with GitHub integration.
-
-    ### 3-Step Deployment Walkthrough:
-
-    1. **Push your code to GitHub**:
-       ```bash
-       git add .
-       git commit -m "feat: deploy modern BlogSphere publication platform"
-       git push origin main
-       ```
-
-    2. **Connect with Streamlit Community Cloud**:
-       - Visit [share.streamlit.io](https://share.streamlit.io).
-       - Select your **BlogSphere** repository.
-       - Set **Main file path** to: `app.py`.
-       - Click **Deploy**!
-
-    3. **Configure Secrets (Optional for Supabase/Cloudinary)**:
-       Go to *Settings > Secrets* in Streamlit Cloud:
-       ```toml
-       ADMIN_EMAIL = "admin@blogsphere.dev"
-       ADMIN_PASSWORD = "your_secure_password"
-       BLOG_PROJECT_NAME = "BlogSphere"
-       ```
-    """)
+# Footer
+st.divider()
+st.markdown(f"<p style='text-align:center; color:#64748b; font-size:0.85rem;'>© {datetime.datetime.now().year} <strong>{PROJECT_NAME}</strong> · Built with Python & Streamlit</p>", unsafe_allow_html=True)

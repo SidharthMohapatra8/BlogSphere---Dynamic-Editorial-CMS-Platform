@@ -1,10 +1,12 @@
 """
-BlogSphere - Streamlit Dynamic Blogging Platform & CMS
-Suitable for local execution and 1-click deployment on Streamlit Community Cloud.
+BlogSphere — Modern Editorial Publication & Dynamic CMS
+Crafted for Python and 1-Click Streamlit Community Cloud Deployment
 """
 import streamlit as st
 import datetime
 import base64
+import os
+import re
 from config import (
     PROJECT_NAME, PROJECT_TAGLINE, PROJECT_DESCRIPTION,
     DEFAULT_CATEGORIES, ADMIN_EMAIL_DEFAULT, ADMIN_PASSWORD_DEFAULT
@@ -12,107 +14,221 @@ from config import (
 import database as db
 from auth import verify_password, hash_password
 
-# Set page configuration
+# Page configuration
 st.set_page_config(
-    page_title=f"{PROJECT_NAME} — Editorial & CMS",
+    page_title=f"{PROJECT_NAME} — Editorial & CMS Platform",
     page_icon="✒️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Editorial & Responsive CSS
-CUSTOM_CSS = """
+# Custom High-End Editorial CSS
+EDITORIAL_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* Typography & Base Root */
 :root {
-    --editorial-font: 'Fraunces', Georgia, serif;
-    --sans-font: 'Inter', -apple-system, sans-serif;
+    --font-serif: 'Fraunces', Georgia, serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --color-bg: #faf9f5;
+    --color-surface: #ffffff;
+    --color-accent: #d97706;
+    --color-text-main: #1e293b;
+    --color-text-muted: #64748b;
 }
 
-html, body, [class*="css"] {
-    font-family: var(--sans-font);
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text-main);
 }
 
+/* Hide Default Streamlit Watermark & Clutter */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header[data-testid="stHeader"] {background: transparent;}
+
+/* Editorial Headings */
 h1, h2, h3, .editorial-heading {
-    font-family: var(--editorial-font) !important;
-    letter-spacing: -0.02em;
+    font-family: var(--font-serif) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em !important;
+    color: #0f172a !important;
 }
 
-/* Hero Section */
-.hero-box {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    color: #ffffff;
-    padding: 3rem 2.5rem;
-    border-radius: 1rem;
-    margin-bottom: 2.5rem;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+/* Top Masthead */
+.masthead-wrapper {
+    text-align: center;
+    max-width: 800px;
+    margin: 0.5rem auto 2.5rem auto;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
 
-.hero-kicker {
-    font-size: 0.85rem;
-    letter-spacing: 0.1em;
+.masthead-kicker {
+    font-size: 0.725rem;
+    font-weight: 700;
     text-transform: uppercase;
-    color: #f59e0b;
-    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: #b45309;
+    margin-bottom: 0.5rem;
+}
+
+.masthead-title {
+    font-family: var(--font-serif);
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1.08;
+    color: #0f172a;
     margin-bottom: 0.75rem;
 }
 
-.hero-title {
-    font-family: var(--editorial-font);
-    font-size: 2.75rem;
-    line-height: 1.15;
-    font-weight: 700;
+.masthead-tagline {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 1.25rem;
+    color: #475569;
+    line-height: 1.5;
+}
+
+/* Flagship Hero Card */
+.hero-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 1.25rem;
+    color: #f8fafc;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hero-body {
+    padding: 2.5rem;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #fbbf24;
     margin-bottom: 1rem;
 }
 
-.hero-desc {
-    font-size: 1.15rem;
-    line-height: 1.6;
-    color: #cbd5e1;
-    max-width: 750px;
+.hero-headline {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #ffffff;
+    margin-bottom: 1rem;
 }
 
-/* Post Cards */
-.post-card {
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 0.875rem;
-    padding: 1.5rem;
-    background: #ffffff;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+.hero-excerpt {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #cbd5e1;
     margin-bottom: 1.5rem;
 }
 
-.post-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.08);
-}
-
-.meta-row {
-    font-size: 0.825rem;
-    color: #64748b;
-    margin-top: 0.75rem;
+.hero-meta {
+    font-size: 0.85rem;
+    color: #94a3b8;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.prose-content {
-    font-size: 1.125rem;
-    line-height: 1.8;
-    color: #334155;
+/* Editorial Article Card */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #ffffff !important;
+    border: 1px solid rgba(226, 232, 240, 0.9) !important;
+    border-radius: 1rem !important;
+    padding: 1.25rem !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Button Refinement */
+div.stButton > button {
+    border-radius: 0.65rem !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    padding: 0.45rem 1.15rem !important;
+    transition: all 0.2s ease !important;
+}
+
+div.stButton > button[kind="primary"] {
+    background-color: #d97706 !important;
+    border-color: #d97706 !important;
+    color: #ffffff !important;
+}
+
+div.stButton > button[kind="primary"]:hover {
+    background-color: #b45309 !important;
+    border-color: #b45309 !important;
+}
+
+/* Sidebar Custom Styling */
+section[data-testid="stSidebar"] {
+    background-color: #f5f4ed !important;
+    border-right: 1px solid rgba(226, 232, 240, 0.9) !important;
+}
+
+/* Unboxed Quiet Metadata Line */
+.unboxed-meta {
+    font-size: 0.775rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.unboxed-meta .cat {
+    color: #b45309;
+    font-weight: 600;
+}
+
+/* Drop Cap for Lead Paragraphs */
+.dropcap-p::first-letter {
+    font-family: var(--font-serif);
+    float: left;
+    font-size: 3.8rem;
+    line-height: 0.85;
+    padding-top: 4px;
+    padding-right: 10px;
+    padding-bottom: 0;
+    font-weight: 700;
+    color: #d97706;
+}
+
+/* Code block font */
+code, pre {
+    font-family: var(--font-mono) !important;
 }
 </style>
 """
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.markdown(EDITORIAL_CSS, unsafe_allow_html=True)
 
 # Initialize Session State
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 if "admin_email" not in st.session_state:
     st.session_state.admin_email = ""
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "Home"
+if "current_view" not in st.session_state:
+    st.session_state.current_view = "home"
 if "selected_slug" not in st.session_state:
     st.session_state.selected_slug = None
 if "selected_category" not in st.session_state:
@@ -120,296 +236,354 @@ if "selected_category" not in st.session_state:
 if "edit_post_id" not in st.session_state:
     st.session_state.edit_post_id = None
 
-# Sidebar Navigation & Platform Controls
+# ==========================================================
+# SIDEBAR NAVIGATION & PLATFORM CONTROLS
+# ==========================================================
 with st.sidebar:
     st.markdown(f"## ✒️ **{PROJECT_NAME}**")
-    st.caption(PROJECT_TAGLINE)
+    st.caption(f"*{PROJECT_TAGLINE}*")
     st.divider()
 
-    # Navigation Selection
-    menu_options = ["Home", "Explore & Search", "Admin Studio & CMS", "GitHub & Deploy"]
-    chosen_page = st.radio(
+    # View Selector
+    nav_choices = {
+        "home": "📰 Publications (Home)",
+        "explore": "🔍 Explore & Archive",
+        "admin": "🛡️ Admin Studio & CMS",
+        "deploy": "🚀 GitHub & Deploy Guide"
+    }
+
+    # Find active key
+    active_nav_key = st.session_state.current_view
+    if active_nav_key not in nav_choices:
+        active_nav_key = "home"
+
+    selected_nav = st.radio(
         "Navigation",
-        menu_options,
-        index=0 if st.session_state.current_page not in menu_options else menu_options.index(st.session_state.current_page),
+        options=list(nav_choices.keys()),
+        format_func=lambda x: nav_choices[x],
+        index=list(nav_choices.keys()).index(active_nav_key),
         label_visibility="collapsed"
     )
 
-    if chosen_page != st.session_state.current_page:
-        st.session_state.current_page = chosen_page
+    if selected_nav != st.session_state.current_view:
+        st.session_state.current_view = selected_nav
         st.session_state.selected_slug = None
         st.rerun()
 
     st.divider()
 
-    # Category Quick Filter
+    # Category Filter
     st.markdown("### **Categories**")
-    all_categories = ["All"] + DEFAULT_CATEGORIES
-    for cat in all_categories:
-        is_active = (st.session_state.selected_category == cat)
-        btn_label = f"▸ {cat}" if is_active else cat
-        if st.button(btn_label, key=f"side_cat_{cat}", use_container_width=True):
+    all_cats = ["All"] + DEFAULT_CATEGORIES
+    for cat in all_cats:
+        is_cur = (st.session_state.selected_category == cat)
+        cat_btn_label = f"● {cat}" if is_cur else cat
+        if st.button(cat_btn_label, key=f"side_cat_{cat}", use_container_width=True):
             st.session_state.selected_category = cat
-            st.session_state.current_page = "Home"
+            st.session_state.current_view = "home"
             st.session_state.selected_slug = None
             st.rerun()
 
     st.divider()
 
-    # Admin Quick Status
+    # Admin Status & Quick Access
     if st.session_state.is_admin:
-        st.success(f"Logged in as **{st.session_state.admin_email}**")
-        if st.button("🚪 Logout Admin", use_container_width=True):
-            st.session_state.is_admin = False
-            st.session_state.admin_email = ""
-            st.rerun()
+        st.success(f"✓ Admin: **{st.session_state.admin_email}**")
+        col_write, col_out = st.columns(2)
+        with col_write:
+            if st.button("✍️ Write Story", use_container_width=True):
+                st.session_state.current_view = "admin"
+                st.session_state.edit_post_id = None
+                st.rerun()
+        with col_out:
+            if st.button("Sign Out", use_container_width=True):
+                st.session_state.is_admin = False
+                st.session_state.admin_email = ""
+                st.rerun()
     else:
-        st.caption("Administrator Access")
-        if st.button("🔑 Open Admin Login", use_container_width=True):
-            st.session_state.current_page = "Admin Studio & CMS"
+        st.caption("Publisher Administration")
+        if st.button("🔑 Sign In to Admin Studio", use_container_width=True):
+            st.session_state.current_view = "admin"
             st.session_state.selected_slug = None
             st.rerun()
+
+    st.divider()
+    st.caption(f"© {datetime.datetime.now().year} {PROJECT_NAME} · SQLite + Streamlit")
 
 # ==========================================================
 # PAGE ROUTING
 # ==========================================================
 
-# 1. POST DETAIL VIEW (When an article is clicked)
+# 1. READ ARTICLE VIEW
 if st.session_state.selected_slug:
     post = db.get_post_by_slug(st.session_state.selected_slug)
     if not post:
-        st.error("Article not found.")
-        if st.button("← Return to Homepage"):
+        st.error("Article not found or has been unpublished.")
+        if st.button("← Return to Publications"):
             st.session_state.selected_slug = None
             st.rerun()
     else:
         # Increment view count
         db.increment_views(post["id"])
 
-        col_back, col_actions = st.columns([1, 1])
+        # Top Navigation Bar in Reader
+        col_back, col_actions = st.columns([2, 1])
         with col_back:
-            if st.button("← Back to Articles"):
+            if st.button("← All Publications", key="reader_back"):
                 st.session_state.selected_slug = None
                 st.rerun()
         with col_actions:
-            like_col, share_col = st.columns([1, 1])
-            with like_col:
-                if st.button(f"❤️ Like ({post['likes']})", key=f"like_{post['id']}"):
-                    new_likes = db.like_post(post["id"])
-                    st.success("Thank you for your appreciation!")
+            subcol1, subcol2 = st.columns(2)
+            with subcol1:
+                if st.button(f"❤️ {post['likes']} Likes", key=f"like_{post['id']}", use_container_width=True):
+                    db.like_post(post["id"])
+                    st.toast("Thank you for your appreciation!")
                     st.rerun()
-            with share_col:
-                if st.button("🔗 Copy Link"):
-                    st.toast("Link copied to clipboard!")
+            with subcol2:
+                if st.button("🔗 Copy Link", key="copy_link_btn", use_container_width=True):
+                    st.toast("Story link copied to clipboard!")
 
-        # Post Header
-        st.caption(f"{post['category']} · {post['read_time']} min read · By {post['author_name']} · Published {str(post['published_at'])[:10]}")
-        st.markdown(f"# {post['title']}")
+        # Article Header
+        st.markdown(f"""
+        <div class="unboxed-meta" style="font-size: 0.85rem; margin-top: 1rem;">
+            <span class="cat">{post['category']}</span>
+            <span>·</span>
+            <span>{post['read_time']} min read</span>
+            <span>·</span>
+            <span>Published {str(post['published_at'])[:10]}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"<h1 style='font-family: Fraunces, serif; font-size: 3rem; line-height: 1.15; margin-bottom: 0.5rem;'>{post['title']}</h1>", unsafe_allow_html=True)
+        
         if post["subtitle"]:
-            st.markdown(f"*{post['subtitle']}*")
+            st.markdown(f"<p style='font-family: Fraunces, serif; font-style: italic; font-size: 1.35rem; color: #475569; margin-bottom: 1.5rem;'>{post['subtitle']}</p>", unsafe_allow_html=True)
 
+        st.caption(f"Written by **{post['author_name']}** · {post['views']} reads")
+
+        # Featured Image
         if post["featured_image"]:
-            st.image(post["featured_image"], use_column_width=True)
+            st.image(post["featured_image"], use_container_width=True)
 
         st.divider()
 
-        # Markdown Article Content
+        # Content Rendering
+        st.markdown(f"""
+        <div style="font-size: 1.15rem; line-height: 1.85; color: #334155;">
+        """, unsafe_allow_html=True)
         st.markdown(post["content"], unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         st.divider()
 
-        # Tags
         if post["tags"]:
-            st.markdown(f"**Tagged in:** {post['tags']}")
+            st.caption(f"**Topics & Tags:** {post['tags']}")
 
         # Comments Section
-        st.markdown("### 💬 Discussion & Responses")
+        st.markdown("### 💬 Reader Responses & Discussion")
         comments = db.get_comments(post["id"])
         if comments:
             for c in comments:
                 with st.chat_message("user"):
                     st.markdown(f"**{c['author_name']}** · *{str(c['created_at'])[:16]}*")
-                    st.markdown(c["content"])
+                    st.write(c["content"])
         else:
-            st.info("No responses yet. Be the first to share your perspective!")
+            st.info("No responses yet. Share your thoughts below.")
 
-        # Add comment form
         with st.form(key=f"comment_form_{post['id']}", clear_on_submit=True):
-            st.markdown("#### Leave a comment")
-            c_name = st.text_input("Your Name", placeholder="e.g. Alex Morgan")
-            c_email = st.text_input("Your Email (optional)", placeholder="alex@example.com")
-            c_body = st.text_area("Your thoughts", placeholder="Write your constructive response...")
-            submit_comment = st.form_submit_button("Post Response")
-
-            if submit_comment:
-                if not c_name.strip() or not c_body.strip():
-                    st.error("Please provide both your name and comment.")
-                else:
+            st.markdown("#### Leave a response")
+            c_name = st.text_input("Your Name", placeholder="e.g. Alex Rivera")
+            c_email = st.text_input("Your Email (optional)", placeholder="alex@domain.com")
+            c_body = st.text_area("Your Perspective", placeholder="Write your constructive thoughts...")
+            if st.form_submit_button("Submit Response", use_container_width=True):
+                if c_name.strip() and c_body.strip():
                     db.add_comment(post["id"], c_name.strip(), c_email.strip(), c_body.strip())
-                    st.success("Comment posted successfully!")
+                    st.success("Your response has been published!")
                     st.rerun()
+                else:
+                    st.error("Please provide both your name and response text.")
 
-# 2. HOME PAGE
-elif st.session_state.current_page == "Home":
-    # Hero Section
+# 2. HOMEPAGE VIEW
+elif st.session_state.current_view == "home":
+    # Top Masthead
     st.markdown(f"""
-    <div class="hero-box">
-        <div class="hero-kicker">Welcome to {PROJECT_NAME}</div>
-        <div class="hero-title">{PROJECT_TAGLINE}</div>
-        <div class="hero-desc">{PROJECT_DESCRIPTION}</div>
+    <div class="masthead-wrapper">
+        <div class="masthead-kicker">Independent Systems & Engineering Journal</div>
+        <div class="masthead-title">{PROJECT_NAME}</div>
+        <div class="masthead-tagline">{PROJECT_TAGLINE}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Search & Filter Bar
+    # Search and Filter Strip
     search_col, cat_col = st.columns([3, 1])
     with search_col:
-        search_query = st.text_input("🔍 Search publications by title, keyword, or tag...", placeholder="Type to search articles...")
+        search_kw = st.text_input("Search", placeholder="Search publications by title, keyword, or topic...", label_visibility="collapsed")
     with cat_col:
-        selected_cat = st.selectbox(
+        chosen_cat = st.selectbox(
             "Category Filter",
-            ["All"] + DEFAULT_CATEGORIES,
-            index=0 if st.session_state.selected_category == "All" else (DEFAULT_CATEGORIES.index(st.session_state.selected_category) + 1 if st.session_state.selected_category in DEFAULT_CATEGORIES else 0)
+            options=["All"] + DEFAULT_CATEGORIES,
+            index=0 if st.session_state.selected_category == "All" else (DEFAULT_CATEGORIES.index(st.session_state.selected_category) + 1 if st.session_state.selected_category in DEFAULT_CATEGORIES else 0),
+            label_visibility="collapsed"
         )
-        if selected_cat != st.session_state.selected_category:
-            st.session_state.selected_category = selected_cat
+        if chosen_cat != st.session_state.selected_category:
+            st.session_state.selected_category = chosen_cat
 
-    # Fetch published posts
-    cat_filter = None if st.session_state.selected_category == "All" else st.session_state.selected_category
-    posts = db.get_posts(status="published", category=cat_filter, search=search_query if search_query else None)
+    cat_arg = None if st.session_state.selected_category == "All" else st.session_state.selected_category
+    posts = db.get_posts(status="published", category=cat_arg, search=search_kw.strip() if search_kw.strip() else None)
 
     if not posts:
-        st.info("No articles match your current search and filter criteria.")
+        st.info("No articles match your current filter or search criteria.")
     else:
-        # Featured Article (First featured or first item)
+        # Flagship Featured Article
         featured = next((p for p in posts if p.get("is_featured") == 1), posts[0])
         other_posts = [p for p in posts if p["id"] != featured["id"]]
 
-        # Display Featured Article Card
-        st.markdown("### ⭐ Featured Story")
-        feat_col1, feat_col2 = st.columns([1.2, 1])
-        with feat_col1:
-            if featured.get("featured_image"):
-                st.image(featured["featured_image"], use_column_width=True)
-            else:
-                st.image("https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80", use_column_width=True)
-        with feat_col2:
-            st.caption(f"{featured['category']} · {featured['read_time']} min read · By {featured['author_name']}")
-            st.markdown(f"## {featured['title']}")
+        # Display Flagship Hero Article
+        feat_col_img, feat_col_text = st.columns([1.1, 1])
+        with feat_col_img:
+            img_url = featured.get("featured_image") or "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80"
+            st.image(img_url, use_container_width=True)
+        with feat_col_text:
+            st.markdown(f"""
+            <div class="unboxed-meta">
+                <span class="cat">{featured['category']}</span>
+                <span>·</span>
+                <span>{featured['read_time']} min read</span>
+                <span>·</span>
+                <span>By {featured['author_name']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"<h2 style='font-family: Fraunces, serif; font-size: 2.25rem; line-height: 1.15; margin-bottom: 0.5rem;'>{featured['title']}</h2>", unsafe_allow_html=True)
             if featured["subtitle"]:
-                st.markdown(f"*{featured['subtitle']}*")
-            st.write(featured["excerpt"] or featured["content"][:200] + "...")
-            if st.button(f"Read Full Article →", key=f"read_feat_{featured['id']}"):
+                st.markdown(f"<p style='font-family: Fraunces, serif; font-style: italic; font-size: 1.1rem; color: #475569;'>{featured['subtitle']}</p>", unsafe_allow_html=True)
+            
+            clean_excerpt = featured["excerpt"] or featured["content"][:180] + "..."
+            st.write(clean_excerpt)
+            
+            if st.button("Read Full Article →", key=f"hero_btn_{featured['id']}", type="primary"):
                 st.session_state.selected_slug = featured["slug"]
                 st.rerun()
 
         st.divider()
 
         # Latest Articles Grid
-        st.markdown(f"### 📰 Latest Articles ({len(posts)})")
-        cols = st.columns(3)
-        for idx, post in enumerate(other_posts):
-            col = cols[idx % 3]
-            with col:
+        st.markdown(f"### 📰 Latest Publications ({len(posts)})")
+        grid_cols = st.columns(3)
+        for idx, p in enumerate(other_posts):
+            target_col = grid_cols[idx % 3]
+            with target_col:
                 with st.container(border=True):
-                    if post.get("featured_image"):
-                        st.image(post["featured_image"], use_column_width=True)
-                    st.caption(f"{post['category']} · {post['read_time']} min read")
-                    st.markdown(f"#### {post['title']}")
-                    st.write(post["excerpt"][:110] + "..." if post["excerpt"] else post["content"][:110] + "...")
-                    st.caption(f"By {post['author_name']} · {post['likes']} likes · {post['views']} views")
-                    if st.button("Read Story", key=f"read_btn_{post['id']}", use_container_width=True):
-                        st.session_state.selected_slug = post["slug"]
+                    if p.get("featured_image"):
+                        st.image(p["featured_image"], use_container_width=True)
+                    st.markdown(f"""
+                    <div class="unboxed-meta" style="margin-top: 0.5rem;">
+                        <span class="cat">{p['category']}</span>
+                        <span>·</span>
+                        <span>{p['read_time']} min read</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.markdown(f"<h4 style='font-family: Fraunces, serif; font-size: 1.15rem; line-height: 1.25; margin-bottom: 0.4rem;'>{p['title']}</h4>", unsafe_allow_html=True)
+                    card_summary = p["excerpt"][:110] + "..." if p["excerpt"] else p["content"][:110] + "..."
+                    st.caption(card_summary)
+                    st.caption(f"By {p['author_name']} · {p['likes']} likes · {p['views']} views")
+                    if st.button("Read Story", key=f"card_read_{p['id']}", use_container_width=True):
+                        st.session_state.selected_slug = p["slug"]
                         st.rerun()
 
-    # Newsletter Section
+    # Sunday Dispatch Newsletter
     st.divider()
-    st.markdown("### 📬 Join the Editorial Newsletter")
-    st.write("Receive curated briefings on engineering, design architecture, and strategic philosophy.")
-    nl_col1, nl_col2 = st.columns([3, 1])
-    with nl_col1:
-        sub_email = st.text_input("Email address", placeholder="reader@example.com", label_visibility="collapsed")
-    with nl_col2:
-        if st.button("Subscribe", use_container_width=True):
+    st.markdown("### 📬 The Sunday Dispatch Newsletter")
+    st.write("Curated technical deep dives, software architecture analyses, and design perspectives delivered directly to your inbox.")
+    nl1, nl2 = st.columns([3, 1])
+    with nl1:
+        sub_email = st.text_input("Newsletter Email", placeholder="reader@domain.com", label_visibility="collapsed")
+    with nl2:
+        if st.button("Subscribe", use_container_width=True, type="primary"):
             if sub_email and "@" in sub_email:
                 if db.add_subscriber(sub_email):
-                    st.success("Subscribed successfully! Welcome to the sphere.")
+                    st.success("Welcome! You are subscribed to our editorial dispatches.")
                 else:
-                    st.info("You are already subscribed. Thank you!")
+                    st.info("You are already subscribed. Thank you for your support!")
             else:
                 st.error("Please enter a valid email address.")
 
-# 3. EXPLORE & SEARCH PAGE
-elif st.session_state.current_page == "Explore & Search":
-    st.markdown(f"# 🔎 Explore {PROJECT_NAME}")
-    st.write("Browse articles across all technical topics, tags, and editorial categories.")
+# 3. EXPLORE & ARCHIVE VIEW
+elif st.session_state.current_view == "explore":
+    st.markdown(f"# 🔍 Explore All Publications")
+    st.write("Browse and filter the complete archive of articles across categories and tags.")
 
-    search_term = st.text_input("Enter search keywords", placeholder="Search architecture, AI, Python, design...")
-    cat_pick = st.selectbox("Filter by Category", ["All"] + DEFAULT_CATEGORIES)
+    exp_search = st.text_input("Search keywords", placeholder="Type keywords like Python, Architecture, Design, AI...")
+    exp_cat = st.selectbox("Filter Category", ["All"] + DEFAULT_CATEGORIES)
 
-    filter_cat = None if cat_pick == "All" else cat_pick
-    results = db.get_posts(status="published", category=filter_cat, search=search_term if search_term else None)
+    filter_category = None if exp_cat == "All" else exp_cat
+    archive_posts = db.get_posts(status="published", category=filter_category, search=exp_search if exp_search else None)
 
-    st.markdown(f"**Found {len(results)} publications**")
-    for r in results:
+    st.markdown(f"**Found {len(archive_posts)} articles**")
+    for ap in archive_posts:
         with st.container(border=True):
-            r_col1, r_col2 = st.columns([4, 1])
-            with r_col1:
-                st.caption(f"{r['category']} · {r['read_time']} min read · By {r['author_name']} · {str(r['published_at'])[:10]}")
-                st.markdown(f"### {r['title']}")
-                st.write(r['excerpt'] or r['content'][:180] + "...")
-                if r['tags']:
-                    st.caption(f"Tags: {r['tags']}")
-            with r_col2:
-                if r.get("featured_image"):
-                    st.image(r["featured_image"], width=140)
-                if st.button("Read", key=f"explore_read_{r['id']}", use_container_width=True):
-                    st.session_state.selected_slug = r["slug"]
+            col_info, col_btn = st.columns([4, 1])
+            with col_info:
+                st.markdown(f"""
+                <div class="unboxed-meta">
+                    <span class="cat">{ap['category']}</span>
+                    <span>·</span>
+                    <span>{ap['read_time']} min read</span>
+                    <span>·</span>
+                    <span>By {ap['author_name']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown(f"### {ap['title']}")
+                st.write(ap['excerpt'] or ap['content'][:160] + "...")
+                if ap['tags']:
+                    st.caption(f"Tags: {ap['tags']}")
+            with col_btn:
+                if ap.get("featured_image"):
+                    st.image(ap["featured_image"], width=130)
+                if st.button("Read Article", key=f"exp_btn_{ap['id']}", use_container_width=True):
+                    st.session_state.selected_slug = ap["slug"]
                     st.rerun()
 
-# 4. ADMIN STUDIO & CMS
-elif st.session_state.current_page == "Admin Studio & CMS":
+# 4. ADMIN STUDIO & CMS VIEW
+elif st.session_state.current_view == "admin":
     st.markdown("# 🛡️ Admin Studio & Content Management")
 
     if not st.session_state.is_admin:
-        st.warning("Please sign in to access post creation, editing, drafts, and publication controls.")
-        
-        login_col1, login_col2 = st.columns([1, 1])
-        with login_col1:
-            with st.form("admin_login_form"):
-                st.markdown("### Administrator Login")
-                email = st.text_input("Admin Email", value=ADMIN_EMAIL_DEFAULT)
-                password = st.text_input("Password", type="password", value=ADMIN_PASSWORD_DEFAULT)
-                login_btn = st.form_submit_button("Sign In to Studio", use_container_width=True)
+        st.warning("Please sign in to access post creation, drafts, publishing, and settings.")
+        login_c1, login_c2 = st.columns([1, 1])
+        with login_c1:
+            with st.form("admin_sign_in_form"):
+                st.markdown("### Administrator Sign In")
+                a_email = st.text_input("Admin Email", value=ADMIN_EMAIL_DEFAULT)
+                a_pass = st.text_input("Password", type="password", value=ADMIN_PASSWORD_DEFAULT)
+                submitted = st.form_submit_button("Sign In to Studio", use_container_width=True, type="primary")
 
-                if login_btn:
+                if submitted:
                     conn = db.get_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT * FROM users WHERE email = ?", (email.strip(),))
-                    user = cursor.fetchone()
+                    cursor.execute("SELECT * FROM users WHERE email = ?", (a_email.strip(),))
+                    user_row = cursor.fetchone()
                     conn.close()
 
-                    if user and verify_password(user["password_hash"], password):
+                    if user_row and verify_password(user_row["password_hash"], a_pass):
                         st.session_state.is_admin = True
-                        st.session_state.admin_email = user["email"]
+                        st.session_state.admin_email = user_row["email"]
                         st.success("Authentication successful!")
                         st.rerun()
                     else:
                         st.error("Invalid email or password.")
-        with login_col2:
+        with login_c2:
             st.info(f"""
-            **Default Test Credentials:**
+            **Default Administrator Credentials:**
             - **Email**: `{ADMIN_EMAIL_DEFAULT}`
             - **Password**: `{ADMIN_PASSWORD_DEFAULT}`
 
-            You can change credentials in `config.py` or through the site settings tab once logged in.
+            You can change your password anytime in `config.py` or through the settings tab.
             """)
     else:
-        # Admin is Logged In
+        # Metrics Strip
         stats = db.get_dashboard_stats()
-        
-        # Metric Cards
         m1, m2, m3, m4, m5, m6 = st.columns(6)
-        m1.metric("Total Posts", stats["total_posts"])
+        m1.metric("Total Stories", stats["total_posts"])
         m2.metric("Published", stats["published_posts"])
         m3.metric("Drafts", stats["draft_posts"])
         m4.metric("Views", stats["total_views"])
@@ -418,182 +592,193 @@ elif st.session_state.current_page == "Admin Studio & CMS":
 
         st.divider()
 
-        admin_tabs = st.tabs(["📝 All Posts", "✨ Create / Edit Article", "⚙️ Platform Settings", "📤 Cloud Database & Storage"])
+        admin_tabs = st.tabs(["📝 Content Library", "✨ Compose & Edit Article", "⚙️ Platform Settings", "📤 Cloud Database Setup"])
 
         # TAB 1: ALL POSTS
         with admin_tabs[0]:
-            st.markdown("### Content Library")
-            filter_status = st.selectbox("Status Filter", ["all", "published", "draft", "scheduled"], index=0)
-            admin_posts = db.get_posts(status=filter_status, category=None, search=None)
+            st.markdown("### Content Library & Post Management")
+            stat_pick = st.selectbox("Status Filter", ["all", "published", "draft", "scheduled"], index=0)
+            cur_posts = db.get_posts(status=stat_pick, category=None, search=None)
 
-            if not admin_posts:
-                st.write("No posts found for this filter.")
+            if not cur_posts:
+                st.write("No articles found under this filter.")
             else:
-                for p in admin_posts:
+                for cp in cur_posts:
                     with st.container(border=True):
                         c1, c2, c3, c4 = st.columns([4, 1.5, 1.5, 1.5])
                         with c1:
-                            status_badge = "🟢 Published" if p['status'] == 'published' else ("🟡 Draft" if p['status'] == 'draft' else "🔵 Scheduled")
-                            feat_badge = "★ Featured · " if p['is_featured'] else ""
-                            st.markdown(f"**{p['title']}**")
-                            st.caption(f"{status_badge} · {feat_badge}{p['category']} · {p['views']} views · {p['likes']} likes")
+                            badge = "🟢 Published" if cp['status'] == 'published' else ("🟡 Draft" if cp['status'] == 'draft' else "🔵 Scheduled")
+                            f_badge = "★ Featured · " if cp['is_featured'] else ""
+                            st.markdown(f"**{cp['title']}**")
+                            st.caption(f"{badge} · {f_badge}{cp['category']} · {cp['views']} reads · {cp['likes']} likes")
                         with c2:
-                            # Quick toggle status
-                            new_status = "draft" if p['status'] == 'published' else "published"
-                            label_toggle = "Unpublish" if p['status'] == 'published' else "Publish"
-                            if st.button(label_toggle, key=f"toggle_stat_{p['id']}", use_container_width=True):
+                            new_st = "draft" if cp['status'] == 'published' else "published"
+                            lbl = "Unpublish" if cp['status'] == 'published' else "Publish"
+                            if st.button(lbl, key=f"tgl_{cp['id']}", use_container_width=True):
                                 db.update_post(
-                                    post_id=p['id'],
-                                    title=p['title'],
-                                    content=p['content'],
-                                    category=p['category'],
-                                    excerpt=p['excerpt'],
-                                    subtitle=p['subtitle'],
-                                    featured_image=p['featured_image'],
-                                    tags=p['tags'],
-                                    status=new_status,
-                                    is_featured=bool(p['is_featured'])
+                                    post_id=cp['id'],
+                                    title=cp['title'],
+                                    content=cp['content'],
+                                    category=cp['category'],
+                                    excerpt=cp['excerpt'],
+                                    subtitle=cp['subtitle'],
+                                    featured_image=cp['featured_image'],
+                                    tags=cp['tags'],
+                                    status=new_st,
+                                    is_featured=bool(cp['is_featured'])
                                 )
                                 st.rerun()
                         with c3:
-                            if st.button("✏️ Edit", key=f"edit_btn_{p['id']}", use_container_width=True):
-                                st.session_state.edit_post_id = p['id']
+                            if st.button("✏️ Edit", key=f"edt_{cp['id']}", use_container_width=True):
+                                st.session_state.edit_post_id = cp['id']
                                 st.rerun()
                         with c4:
-                            if st.button("🗑️ Delete", key=f"del_btn_{p['id']}", use_container_width=True):
-                                db.delete_post(p['id'])
-                                st.success("Post deleted.")
+                            if st.button("🗑️ Delete", key=f"dlt_{cp['id']}", use_container_width=True):
+                                db.delete_post(cp['id'])
+                                st.success("Article deleted.")
                                 st.rerun()
 
-        # TAB 2: CREATE / EDIT ARTICLE
+        # TAB 2: COMPOSE / EDIT ARTICLE
         with admin_tabs[1]:
-            is_editing = (st.session_state.edit_post_id is not None)
-            editing_post = db.get_post_by_id(st.session_state.edit_post_id) if is_editing else None
+            is_edit_mode = (st.session_state.edit_post_id is not None)
+            editing_article = db.get_post_by_id(st.session_state.edit_post_id) if is_edit_mode else None
 
-            if is_editing and editing_post:
-                st.info(f"Currently editing post: **{editing_post['title']}** (ID: {editing_post['id']})")
-                if st.button("Cancel Editing and Create New Instead"):
+            if is_edit_mode and editing_article:
+                st.info(f"Editing: **{editing_article['title']}**")
+                if st.button("Cancel & Create New Article"):
                     st.session_state.edit_post_id = None
                     st.rerun()
 
-            with st.form("post_editor_form"):
-                f_title = st.text_input("Article Title", value=editing_post["title"] if editing_post else "")
-                f_subtitle = st.text_input("Subtitle / Kicker", value=editing_post["subtitle"] if editing_post else "")
-                
-                f_col1, f_col2, f_col3 = st.columns([1.5, 1.5, 1])
-                with f_col1:
-                    cat_val = editing_post["category"] if editing_post else DEFAULT_CATEGORIES[0]
-                    cat_index = DEFAULT_CATEGORIES.index(cat_val) if cat_val in DEFAULT_CATEGORIES else 0
-                    f_category = st.selectbox("Category", DEFAULT_CATEGORIES, index=cat_index)
-                with f_col2:
-                    status_opts = ["published", "draft", "scheduled"]
-                    stat_val = editing_post["status"] if editing_post else "published"
-                    stat_index = status_opts.index(stat_val) if stat_val in status_opts else 0
-                    f_status = st.selectbox("Status", status_opts, index=stat_index)
-                with f_col3:
-                    f_featured = st.checkbox("Featured on Home", value=bool(editing_post["is_featured"]) if editing_post else False)
+            with st.form("article_editor_form"):
+                f_title = st.text_input("Article Title *", value=editing_article["title"] if editing_article else "")
+                f_subtitle = st.text_input("Subtitle / Deck (Optional)", value=editing_article["subtitle"] if editing_article else "")
 
-                f_image = st.text_input(
+                fc1, fc2, fc3 = st.columns([1.5, 1.5, 1])
+                with fc1:
+                    cur_cat = editing_article["category"] if editing_article else DEFAULT_CATEGORIES[0]
+                    cat_i = DEFAULT_CATEGORIES.index(cur_cat) if cur_cat in DEFAULT_CATEGORIES else 0
+                    f_cat = st.selectbox("Category", DEFAULT_CATEGORIES, index=cat_i)
+                with fc2:
+                    st_opts = ["published", "draft", "scheduled"]
+                    cur_s = editing_article["status"] if editing_article else "published"
+                    st_i = st_opts.index(cur_s) if cur_s in st_opts else 0
+                    f_stat = st.selectbox("Publication Status", st_opts, index=st_i)
+                with fc3:
+                    f_feat = st.checkbox("Featured on Home", value=bool(editing_article["is_featured"]) if editing_article else False)
+
+                f_img = st.text_input(
                     "Featured Image URL (Unsplash, Cloudinary, or Supabase)",
-                    value=editing_post["featured_image"] if editing_post else "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
-                )
-                f_excerpt = st.text_area("Excerpt (Summary for cards & search)", value=editing_post["excerpt"] if editing_post else "")
-                f_tags = st.text_input("Tags (comma separated)", value=editing_post["tags"] if editing_post else "Tech, Guide, Cloud")
-
-                st.markdown("#### Article Body (Markdown supported)")
-                f_content = st.text_area(
-                    "Content",
-                    value=editing_post["content"] if editing_post else "# Heading\n\nWrite your insightful article here...",
-                    height=300
+                    value=editing_article["featured_image"] if editing_article else "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"
                 )
 
-                submit_btn = st.form_submit_button("💾 Save & Publish Article" if not is_editing else "💾 Update Article", use_container_width=True)
+                uploaded_img = st.file_uploader("Or Upload Image File from Computer", type=["png", "jpg", "jpeg", "webp"], key="st_editor_upload")
+                if uploaded_img is not None:
+                    raw_bytes = uploaded_img.read()
+                    mime = uploaded_img.type or "image/jpeg"
+                    b64_str = base64.b64encode(raw_bytes).decode()
+                    f_img = f"data:{mime};base64,{b64_str}"
+                    st.caption("✓ Local image encoded and ready to save!")
 
-                if submit_btn:
-                    if not f_title.strip() or not f_content.strip():
-                        st.error("Please fill in both title and content.")
+                if f_img:
+                    st.image(f_img, caption="Featured Image Preview", width=250)
+
+                f_excerpt = st.text_area("Excerpt (Summary for cards & search)", value=editing_article["excerpt"] if editing_article else "")
+                f_tags = st.text_input("Tags (comma separated)", value=editing_article["tags"] if editing_article else "Tech, Guide, Systems")
+
+                st.markdown("#### Story Body (Markdown Supported)")
+                f_body = st.text_area(
+                    "Markdown Content",
+                    value=editing_article["content"] if editing_article else "# Section Heading\n\nWrite your insights here using Markdown...",
+                    height=320
+                )
+
+                submit_editor = st.form_submit_button(
+                    "💾 Save & Publish Article" if not is_edit_mode else "💾 Update Article",
+                    use_container_width=True,
+                    type="primary"
+                )
+
+                if submit_editor:
+                    if not f_title.strip() or not f_body.strip():
+                        st.error("Please provide both title and content.")
                     else:
-                        if is_editing:
+                        if is_edit_mode:
                             db.update_post(
-                                post_id=editing_post["id"],
+                                post_id=editing_article["id"],
                                 title=f_title.strip(),
-                                content=f_content.strip(),
-                                category=f_category,
+                                content=f_body.strip(),
+                                category=f_cat,
                                 excerpt=f_excerpt.strip(),
                                 subtitle=f_subtitle.strip(),
-                                featured_image=f_image.strip(),
+                                featured_image=f_img.strip(),
                                 tags=f_tags.strip(),
-                                status=f_status,
-                                is_featured=f_featured
+                                status=f_stat,
+                                is_featured=f_feat
                             )
-                            st.success("Article successfully updated!")
+                            st.success("Article updated successfully!")
                             st.session_state.edit_post_id = None
                             st.rerun()
                         else:
-                            new_id = db.create_post(
+                            new_article_id = db.create_post(
                                 title=f_title.strip(),
-                                content=f_content.strip(),
-                                category=f_category,
+                                content=f_body.strip(),
+                                category=f_cat,
                                 excerpt=f_excerpt.strip(),
                                 subtitle=f_subtitle.strip(),
-                                featured_image=f_image.strip(),
+                                featured_image=f_img.strip(),
                                 tags=f_tags.strip(),
-                                status=f_status,
-                                is_featured=f_featured
+                                status=f_stat,
+                                is_featured=f_feat
                             )
-                            st.success(f"Article created successfully! (ID: {new_id})")
+                            st.success(f"New publication created! (ID: {new_article_id})")
                             st.rerun()
 
         # TAB 3: PLATFORM SETTINGS
         with admin_tabs[2]:
-            st.markdown("### Branding & Defaults")
-            st.write(f"Current Platform Name: **{PROJECT_NAME}**")
-            st.info("To permanently rename your blog, simply change `PROJECT_NAME` in `config.py` or set the `BLOG_PROJECT_NAME` environment variable.")
+            st.markdown("### Platform Branding")
+            st.write(f"Current Publication Name: **{PROJECT_NAME}**")
+            st.info("To rebrand permanently, update `PROJECT_NAME` in `config.py` or set the `BLOG_PROJECT_NAME` environment variable.")
 
-        # TAB 4: CLOUD DATABASE & STORAGE
+        # TAB 4: CLOUD DATABASE SETUP
         with admin_tabs[3]:
-            st.markdown("### Persistent Cloud Storage Configuration")
+            st.markdown("### Supabase PostgreSQL & Cloud Storage")
             st.markdown("""
-            **1. Supabase PostgreSQL Setup**
-            Set the `DATABASE_URL` environment variable:
-            ```bash
-            DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres"
+            **1. Connect Supabase PostgreSQL:**
+            Set `DATABASE_URL` in your Streamlit Secrets:
+            ```toml
+            DATABASE_URL = "postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres"
             ```
 
-            **2. Cloudinary Image Storage**
-            Set your Cloudinary API credentials in `.env` or Streamlit Secrets:
-            ```bash
-            CLOUDINARY_CLOUD_NAME="your_cloud_name"
-            CLOUDINARY_API_KEY="your_api_key"
-            CLOUDINARY_API_SECRET="your_api_secret"
+            **2. Cloudinary Media Storage:**
+            ```toml
+            CLOUDINARY_CLOUD_NAME = "your_cloud_name"
+            CLOUDINARY_API_KEY = "your_api_key"
+            CLOUDINARY_API_SECRET = "your_api_secret"
             ```
             """)
 
-# 5. GITHUB & STREAMLIT DEPLOY PAGE
-elif st.session_state.current_page == "GitHub & Deploy":
+# 5. GITHUB & STREAMLIT DEPLOY GUIDE
+elif st.session_state.current_view == "deploy":
     st.markdown(f"# 🚀 Deploy {PROJECT_NAME} on Streamlit Community Cloud")
     st.markdown("""
-    This application is fully architected and packaged for instant deployment to **Streamlit Community Cloud** with GitHub version control.
+    This platform is engineered for 1-click publishing to **Streamlit Community Cloud** with GitHub integration.
 
     ### 3-Step Deployment Walkthrough:
 
-    1. **Push to GitHub**:
+    1. **Push your code to GitHub**:
        ```bash
-       git init
        git add .
-       git commit -m "feat: initial BlogSphere publication platform"
-       git branch -M main
-       git remote add origin https://github.com/YOUR_USERNAME/BlogSphere.git
-       git push -u origin main
+       git commit -m "feat: deploy modern BlogSphere publication platform"
+       git push origin main
        ```
 
-    2. **Connect to Streamlit Community Cloud**:
+    2. **Connect with Streamlit Community Cloud**:
        - Visit [share.streamlit.io](https://share.streamlit.io).
        - Select your **BlogSphere** repository.
-       - Set main file path to: `app.py`.
+       - Set **Main file path** to: `app.py`.
        - Click **Deploy**!
 
-    3. **Configure Secrets in Streamlit Dashboard (Optional for Supabase/Cloudinary)**:
+    3. **Configure Secrets (Optional for Supabase/Cloudinary)**:
        Go to *Settings > Secrets* in Streamlit Cloud:
        ```toml
        ADMIN_EMAIL = "admin@blogsphere.dev"

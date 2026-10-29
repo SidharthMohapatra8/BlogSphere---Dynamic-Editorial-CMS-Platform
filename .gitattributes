@@ -1,0 +1,11 @@
+# Enforce Python as 100% language on GitHub
+*.js linguist-vendored
+*.jsx linguist-vendored
+*.ts linguist-vendored
+*.tsx linguist-vendored
+*.json linguist-vendored
+*.css linguist-vendored
+*.html linguist-vendored
+*.lock linguist-vendored
+dist/** linguist-vendored
+src/** linguist-vendored

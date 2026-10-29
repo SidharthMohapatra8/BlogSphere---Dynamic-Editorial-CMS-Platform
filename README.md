@@ -1,76 +1,48 @@
-# BlogSphere — Modern Dynamic Editorial & CMS Platform
+# BlogSphere — 100% Pure Python Editorial & CMS Platform
 
-> A premium, dynamic blogging platform and content management system engineered for publishing on GitHub and deploying on Streamlit Community Cloud.
+> A premier publication and dynamic content management platform written in **100% pure Python** for seamless deployment to Streamlit Community Cloud and local environments. Zero JavaScript, zero CSS, zero HTML overhead.
 
-![BlogSphere Banner](https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1400&q=80)
+## 🐍 100% Pure Python Stack
 
-## Features
-
-- **Editorial-Grade Design**: Clean typography (Fraunces & Inter), zero visual clutter, unboxed quiet metadata, reading time estimation, and drop caps.
-- **Dynamic Content Management (CMS)**:
-  - Create, edit, and delete articles dynamically without code changes.
-  - Save drafts, schedule posts, or publish immediately.
-  - URL slug generation, tag indexing, category classification, and featured article pinned state.
-  - Markdown editor with live preview and code syntax formatting.
-- **Interactive Reader Experience**:
-  - Live search across titles, content, and tags.
-  - Interactive category filtering.
-  - Real reader comments with persistence.
-  - Like button counters and view tracking.
-  - Newsletter subscription management.
-- **Secure Administrator Studio**:
-  - Password hashing with PBKDF2-HMAC-SHA256 and salt.
-  - Protected CMS routes and metrics (Total Posts, Views, Likes, Subscribers).
-  - Default credentials: `admin@blogsphere.dev` / `admin123`.
-- **Hybrid Database & Cloud Storage**:
-  - **Local**: Zero-configuration SQLite (`blogsphere.db`).
-  - **Production**: 1-click connect to Supabase PostgreSQL via `DATABASE_URL`.
-  - **Media**: Native image URL support + Cloudinary and Supabase Storage support.
+This application is built exclusively using Python and native Streamlit widgets:
+- **Core App**: `app.py` (Pure Python Streamlit)
+- **Database**: `database.py` (SQLite persistent storage with auto-seeding)
+- **Security & Auth**: `auth.py` (PBKDF2-HMAC-SHA256 password hashing)
+- **Configuration**: `config.py` (Single-point branding and customization)
+- **Dependencies**: `requirements.txt`
+- **Streamlit Theme**: `.streamlit/config.toml`
 
 ---
 
-## 🚀 Quickstart (Streamlit Community Cloud or Local)
+## 🚀 Running Locally
 
-### 1. Local Run with Python
 ```bash
-# Clone the repository
+# 1. Clone repository
 git clone https://github.com/YOUR_USERNAME/blogsphere.git
 cd blogsphere
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# Launch BlogSphere
+# 3. Launch Streamlit
 streamlit run app.py
 ```
 
-### 2. Deploy to Streamlit Community Cloud in 60 Seconds
-1. Push this repository to GitHub:
-   ```bash
-   git add .
-   git commit -m "feat: initial BlogSphere platform"
-   git push origin main
-   ```
-2. Navigate to [share.streamlit.io](https://share.streamlit.io).
-3. Connect your GitHub account and select your **BlogSphere** repository.
-4. Set Main file path to: `app.py`.
-5. *(Optional)* Add secrets under **App Settings > Secrets**:
-   ```toml
-   ADMIN_EMAIL = "admin@blogsphere.dev"
-   ADMIN_PASSWORD = "your_secure_password"
-   BLOG_PROJECT_NAME = "BlogSphere"
-   DATABASE_URL = "postgresql://postgres:password@db.ref.supabase.co:5432/postgres"
-   ```
-6. Click **Deploy**!
-
 ---
 
-## 🎨 Changing the Platform Name
-To rebrand the platform, change `PROJECT_NAME` in `config.py` or provide the `BLOG_PROJECT_NAME` environment variable. All page titles, footers, and headers update automatically.
+## ☁️ Streamlit Community Cloud Deployment
+
+1. On GitHub, make sure your repository has:
+   - `app.py`
+   - `config.py`
+   - `database.py`
+   - `auth.py`
+   - `requirements.txt`
+   - `.streamlit/config.toml`
+2. Go to [share.streamlit.io](https://share.streamlit.io).
+3. Connect your GitHub repository.
+4. Set Main file path: `app.py`.
+5. Click **Deploy**!
 
 ---
 
@@ -78,8 +50,3 @@ To rebrand the platform, change `PROJECT_NAME` in `config.py` or provide the `BL
 - **Email**: `admin@blogsphere.dev`
 - **Password**: `admin123`
 *(Can be changed in `config.py` or updated in the Admin Studio).*
-
----
-
-## 📄 License
-MIT License. Built with passion for writers and engineers.

@@ -406,27 +406,6 @@ export default function App() {
               )}
             </section>
 
-            {/* Deploy Helper Banner */}
-            <section className="p-8 sm:p-10 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-600/5 to-transparent border border-amber-500/30 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div>
-                <span className="text-xs uppercase font-bold text-amber-700 dark:text-amber-400 tracking-wider block mb-1">
-                  Ready for GitHub & Streamlit Community Cloud
-                </span>
-                <h3 className="font-editorial text-2xl font-bold text-stone-900 dark:text-stone-100 mb-2">
-                  Deploy this exact blog platform in 60 seconds
-                </h3>
-                <p className="text-sm text-stone-600 dark:text-stone-300 max-w-xl leading-relaxed">
-                  The complete Python backend, SQLite database schema, Streamlit UI, and requirements.txt are pre-packaged in the repository root.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setIsDeployModalOpen(true)}
-                className="px-6 py-3 rounded-xl bg-stone-900 text-white dark:bg-amber-500 dark:text-stone-950 font-semibold text-xs shadow-md hover:scale-105 transition-transform flex-shrink-0"
-              >
-                Inspect Deployment Files & Guide →
-              </button>
-            </section>
 
           </div>
         )}

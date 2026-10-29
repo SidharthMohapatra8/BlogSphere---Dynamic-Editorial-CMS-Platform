@@ -110,15 +110,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <kbd className="hidden sm:inline px-1.5 py-0.5 text-[10px] bg-stone-100 dark:bg-stone-900 rounded border border-stone-300 dark:border-stone-700 font-mono">⌘K</kbd>
           </button>
 
-          {/* Deploy to Streamlit & GitHub Button */}
-          <button
-            onClick={onOpenDeployModal}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-stone-200 bg-stone-100 dark:bg-stone-800/90 hover:bg-stone-200/70 dark:hover:bg-stone-700 border border-stone-300/70 dark:border-stone-700 rounded-lg transition-colors"
-            title="View Python, Streamlit & GitHub deployment instructions"
-          >
-            <Github className="w-3.5 h-3.5" />
-            <span>Streamlit / GitHub</span>
-          </button>
 
           {/* New Article Shortcut (if admin) */}
           {currentUser && (
@@ -195,12 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Admin Studio & CMS
           </button>
-          <button
-            onClick={() => { onOpenDeployModal(); setMobileMenuOpen(false); }}
-            className="block w-full text-left py-2 px-3 text-sm font-medium text-stone-700 dark:text-stone-300 rounded-md hover:bg-stone-100 dark:hover:bg-stone-800"
-          >
-            Deploy on Streamlit & GitHub
-          </button>
+
           {currentUser && (
             <button
               onClick={() => { onNavigate('new-post'); setMobileMenuOpen(false); }}

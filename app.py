@@ -514,4 +514,4 @@ elif st.session_state.current_page == "Admin Studio":
 
 # Footer
 st.divider()
-st.markdown(f"<p style='text-align:center; color:#64748b; font-size:0.85rem;'>© {datetime.datetime.now().year} <strong>{PROJECT_NAME}</strong> · Built with Python & Streamlit</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center; color:#64748b; font-size:0.85rem;'>© {datetime.datetime.now().year} <strong>{PROJECT_NAME}</strong> · All rights reserved.</p>", unsafe_allow_html=True)

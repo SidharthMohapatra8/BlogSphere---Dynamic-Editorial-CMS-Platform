@@ -55,15 +55,6 @@ export const Footer: React.FC<FooterProps> = ({
             <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed max-w-sm">
               {settings.description}
             </p>
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={onOpenDeployModal}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:border-amber-500 transition-colors shadow-xs"
-              >
-                <Github className="w-3.5 h-3.5" />
-                <span>Streamlit Cloud & GitHub Ready</span>
-              </button>
-            </div>
           </div>
 
           {/* Editorial Categories */}
@@ -123,7 +114,7 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom Bar with Links & Legal */}
         <div className="pt-8 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500 dark:text-stone-400">
           <div>
-            © {new Date().getFullYear()} {settings.projectName}. Crafted with Python, Streamlit & TypeScript.
+            © {new Date().getFullYear()} {settings.projectName}. All rights reserved.
           </div>
 
           <div className="flex items-center gap-5">

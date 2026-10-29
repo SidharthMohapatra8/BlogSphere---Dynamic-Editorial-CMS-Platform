@@ -204,25 +204,41 @@ div[data-testid="stVerticalBlockBorderWrapper"]:hover {
     box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Button Customization */
-div.stButton > button {
-    border-radius: 0.65rem !important;
-    font-weight: 600 !important;
-    font-size: 0.825rem !important;
-    padding: 0.45rem 1rem !important;
-    transition: all 0.15s ease !important;
+/* Top Navbar Buttons - sleek text links instead of bulky buttons */
+div[data-testid="stHorizontalBlock"] button {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: #475569 !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+    padding: 0.35rem 0.75rem !important;
 }
 
+div[data-testid="stHorizontalBlock"] button:hover {
+    color: #0f172a !important;
+    background: rgba(15, 23, 42, 0.05) !important;
+    border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Primary buttons keep warm amber styling */
 div.stButton > button[kind="primary"] {
     background-color: #d97706 !important;
     border-color: #d97706 !important;
     color: #ffffff !important;
+    box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.2) !important;
 }
 
 div.stButton > button[kind="primary"]:hover {
     background-color: #b45309 !important;
     border-color: #b45309 !important;
-    transform: scale(1.02);
+}
+
+/* Fused Hero Image corners */
+div[data-testid="stHorizontalBlock"] [data-testid="stImage"] img {
+    border-radius: 1.25rem !important;
+    object-fit: cover !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Unboxed Clean Metadata Line */
@@ -442,25 +458,23 @@ elif st.session_state.nav_page == "home":
         remaining = [p for p in all_published if p["id"] != flagship["id"]]
 
         # Display Hero Card with Dark Split Background (matching React website!)
-        hero_col_text, hero_col_img = st.columns([1.15, 1])
+        hero_col_text, hero_col_img = st.columns([1.15, 1], gap="medium")
         with hero_col_text:
             st.markdown(f"""
-            <div style="background: #0f172a; padding: 2.75rem; border-radius: 1.25rem 0 0 1.25rem; color: #ffffff; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                    <div class="hero-kicker-tag">
-                        <span>★ FEATURED DISPATCH</span>
-                        <span>·</span>
-                        <span>{flagship['category']}</span>
-                        <span>·</span>
-                        <span>{flagship['read_time']} MIN READ</span>
-                    </div>
-                    <div style="font-family: Fraunces, serif; font-size: 2.35rem; font-weight: 700; line-height: 1.15; margin-bottom: 1rem; color: #ffffff;">
-                        {flagship['title']}
-                    </div>
-                    <p style="font-size: 1.05rem; line-height: 1.6; color: #cbd5e1; margin-bottom: 1.5rem;">
-                        {flagship['subtitle'] or flagship['excerpt']}
-                    </p>
+            <div style="background: #0f172a; padding: 2.5rem; border-radius: 1.25rem; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 15px 30px -10px rgba(15, 23, 42, 0.2); margin-bottom: 0.75rem;">
+                <div class="hero-kicker-tag">
+                    <span>★ FEATURED DISPATCH</span>
+                    <span>·</span>
+                    <span>{flagship['category']}</span>
+                    <span>·</span>
+                    <span>{flagship['read_time']} MIN READ</span>
                 </div>
+                <div style="font-family: Fraunces, serif; font-size: 2.25rem; font-weight: 700; line-height: 1.18; margin-bottom: 1rem; color: #ffffff;">
+                    {flagship['title']}
+                </div>
+                <p style="font-size: 1.05rem; line-height: 1.6; color: #cbd5e1; margin-bottom: 1.5rem;">
+                    {flagship['subtitle'] or flagship['excerpt']}
+                </p>
                 <div class="hero-author-strip">
                     <span style="font-weight: 600; color: #ffffff;">By {flagship['author_name']}</span>
                     <span>·</span>
